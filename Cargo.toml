@@ -5,4 +5,6 @@ edition = "2021"
 
 [dependencies]
 ontolius = { git = 'https://github.com/ielis/ontolius.git', tag = 'v0.1.2' }
-thiserror = "1.0.61"
+anyhow = "1.0.86"
+rayon = "1.10.0"
+itertools = "0.13.0"

@@ -1,28 +1,45 @@
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 
 use ontolius::prelude::*;
 use thiserror::Error;
 
-use super::item::AnnotatedItem;
+use crate::feature::{FrequencyAware, Observable, ObservationState};
+use crate::item::AnnotatedItem;
 
 #[derive(Debug, Error)]
 pub enum IcCalculationError {
-    #[error("No annotated items in the input")]
-    EmptyInput,
     #[error("{0}")]
     OntologyError(Cow<'static, str>),
 }
 
-pub trait IcContainer {
-    fn ic_for_term_id(&self, id: &TermId) -> Option<&f64>;
-
-    fn len(&self) -> usize;
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TermIC {
+    pub present: f64,
+    pub excluded: f64,
 }
 
-impl<'a> IcContainer for HashMap<&'a TermId, f64> {
-    fn ic_for_term_id(&self, id: &TermId) -> Option<&f64> {
+pub trait IcContainer {
+    fn get_term_ic(&self, id: &TermId) -> Option<&TermIC>;
+
+    fn get_present_term_ic(&self, id: &TermId) -> Option<&f64> {
+        self.get_term_ic(id).map(|x| &x.present)
+    }
+
+    fn get_excluded_term_ic(&self, id: &TermId) -> Option<&f64> {
+        self.get_term_ic(id).map(|x| &x.excluded)
+    }
+
+    fn len(&self) -> usize;
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+impl<'a> IcContainer for HashMap<&'a TermId, TermIC> {
+    fn get_term_ic(&self, id: &TermId) -> Option<&TermIC> {
         self.get(id)
     }
 
@@ -31,6 +48,17 @@ impl<'a> IcContainer for HashMap<&'a TermId, f64> {
     }
 }
 
+impl<'a> IcContainer for BTreeMap<&'a TermId, TermIC> {
+    fn get_term_ic(&self, id: &TermId) -> Option<&TermIC> {
+        self.get(id)
+    }
+
+    fn len(&self) -> usize {
+        self.len()
+    }
+}
+
+// Not object-safe due to generics in `compute_ic`.
 pub trait IcCalculator {
     type Container: IcContainer;
 
@@ -40,30 +68,31 @@ pub trait IcCalculator {
         I: IntoIterator<Item = A>;
 }
 
-pub struct HpoIcCalculator<'o, O> {
+pub struct CohortIcCalculator<'o, O> {
     hpo: &'o O,
-    use_pseudocount: bool,
     module_root: &'o TermId,
 }
 
-impl<'o, O> HpoIcCalculator<'o, O> {
-    pub fn new(hpo: &'o O, use_pseudocount: bool, module_root: &'o TermId) -> Self {
-        HpoIcCalculator {
-            hpo,
-            use_pseudocount,
-            module_root,
-        }
+impl<'o, O> CohortIcCalculator<'o, O> {
+    pub fn new(hpo: &'o O, module_root: &'o TermId) -> Self {
+        CohortIcCalculator { hpo, module_root }
     }
 }
 
-impl<'o, OI, O> IcCalculator for HpoIcCalculator<'o, O>
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+struct TermCount {
+    present: u32,
+    exluded: u32,
+}
+
+impl<'o, OI, O> IcCalculator for CohortIcCalculator<'o, O>
 where
     OI: TermIdx + HierarchyIdx + Hash,
     O: Ontology<Idx = OI>,
 {
-    type Container = HashMap<&'o TermId, f64>;
+    type Container = HashMap<&'o TermId, TermIC>;
 
-    fn compute_ic<I, A>(&self, items: I) -> Result<HashMap<&'o TermId, f64>, IcCalculationError>
+    fn compute_ic<I, A>(&self, items: I) -> Result<HashMap<&'o TermId, TermIC>, IcCalculationError>
     where
         A: AnnotatedItem,
         I: IntoIterator<Item = A>,
@@ -76,46 +105,84 @@ where
         }
         let module_idx = module_idx.unwrap();
 
-        let mut module_term_ids: HashSet<_> =
-            self.hpo.hierarchy().descendants_of(module_idx).collect();
-        module_term_ids.insert(&module_idx);
+        let module_term_ids: HashSet<_> = self
+            .hpo
+            .hierarchy()
+            .descendants_of(module_idx)
+            .chain(std::iter::once(&module_idx))
+            .collect();
 
-        let mut idx2count: HashMap<OI, u32> = HashMap::with_capacity(self.hpo.len());
+        let mut idx2count: HashMap<OI, TermCount> = HashMap::with_capacity(module_term_ids.len());
 
         for item in items.into_iter() {
             for annotation in item.annotations() {
                 if let Some(idx) = self.hpo.id_to_idx(annotation.identifier()) {
                     if module_term_ids.contains(&idx) {
-                        *idx2count.entry(idx).or_insert(0) += 1;
-                        for anc in self.hpo.hierarchy().ancestors_of(idx) {
-                            if module_term_ids.contains(anc) {
-                                *idx2count.entry(*anc).or_insert(0) += 1;
+                        match annotation.observation_state() {
+                            ObservationState::Present => {
+                                idx2count.entry(idx).or_default().present += annotation.numerator();
+                                for anc in self.hpo.hierarchy().ancestors_of(idx) {
+                                    if module_term_ids.contains(anc) {
+                                        idx2count.entry(*anc).or_default().present +=
+                                            annotation.numerator();
+                                    }
+                                }
+                            }
+                            ObservationState::Excluded => {
+                                idx2count.entry(idx).or_default().exluded += annotation.numerator();
+                                for desc in self.hpo.hierarchy().descendants_of(idx) {
+                                    /*
+                                      Unlike in `ObservationState::Present` arm, we do not need
+                                      to check if `desc` is contained in `module_term_ids`,
+                                      since Ontology DAG guarantees this for any `idx`
+                                      contained in `module_term_ids`.
+                                    */
+                                    idx2count.entry(*desc).or_default().exluded +=
+                                        annotation.numerator();
+                                }
                             }
                         }
                     }
+                } else {
+                    return Err(IcCalculationError::OntologyError(
+                        format!("Annotation ID {} not in HPO", annotation.identifier()).into(),
+                    ));
                 }
             }
         }
+
         if idx2count.is_empty() {
-            return Err(IcCalculationError::EmptyInput);
+            return Ok(HashMap::new());
         }
 
-        if self.use_pseudocount {
-            for item in module_term_ids {
-                idx2count.entry(*item).or_insert(1);
-            }
-        }
+        let pop_present_count = idx2count[&module_idx].present as f64;
 
-        let population_count = idx2count[&module_idx];
+        /* 
+        We use max of the *entire* excluded count set, 
+        as opposed to just taking the max of the descendants of a `term_id` in question.
+        */
+        let pop_excluded_count = idx2count
+            .values()
+            .max_by_key(|&count| count.exluded)
+            .map(|count| count.exluded)
+            // We only get here if `idx2count`` is not empty.
+            .expect("Idx2count should not be empty") as f64;
 
-        let term_id2ic = idx2count
+        let term_id2ic: HashMap<&TermId, TermIC> = idx2count
             .iter()
             .map(|(idx, count)| {
+                let term_id = self
+                    .hpo
+                    .idx_to_term_id(*idx)
+                    .expect("Index was obtained from ontology so it should be there");
+                let present_ic = f64::log2(pop_present_count / count.present as f64);
+                let excluded_ic = f64::log2(pop_excluded_count / count.exluded as f64);
                 (
-                    self.hpo
-                        .idx_to_term_id(*idx)
-                        .expect("Index was obtained from ontology so it should be there"),
-                    f64::log2(population_count as f64 / *count as f64),
+                    term_id,
+                    TermIC {
+                        present: present_ic,
+                        excluded: excluded_ic,
+                    },
                 )
             })
             .collect();

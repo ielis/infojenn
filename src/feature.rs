@@ -2,18 +2,36 @@ use std::ops::Div;
 
 use ontolius::base::{Identified, TermId};
 
+/// An enum to represent if a feature was present or excluded in the study subject(s).
+pub enum ObservationState {
+    /// The feature was present.
+    Present,
+    /// Presence of a feature was explicitly ruled out by an investigation.
+    Excluded,
+}
+
 /// `Observable` entity is either in a *present* or an *excluded* state
 /// in the investigated item.
 ///
 /// For instance, a phenotypic feature such as [Polydactyly](https://hpo.jax.org/browse/term/HP:0010442)
 /// can either be present or excluded in the study subject.
 pub trait Observable {
+    fn observation_state(&self) -> ObservationState;
+
     /// Test if the feature was observed in one or more items.
-    fn is_present(&self) -> bool;
+    fn is_present(&self) -> bool {
+        match self.observation_state() {
+            ObservationState::Present => true,
+            ObservationState::Excluded => false,
+        }
+    }
 
     /// Test if the feature was not observed in any of the items.
     fn is_excluded(&self) -> bool {
-        !self.is_present()
+        match self.observation_state() {
+            ObservationState::Present => false,
+            ObservationState::Excluded => true,
+        }
     }
 }
 
@@ -46,8 +64,11 @@ impl<T> Observable for T
 where
     T: FrequencyAware,
 {
-    fn is_present(&self) -> bool {
-        self.numerator() > 0
+    fn observation_state(&self) -> ObservationState {
+        match self.numerator() {
+            0 => ObservationState::Excluded,
+            _ => ObservationState::Present
+        }
     }
 }
 

@@ -3,6 +3,7 @@ use std::ops::Div;
 use ontolius::base::{Identified, TermId};
 
 /// An enum to represent if a feature was present or excluded in the study subject(s).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ObservationState {
     /// The feature was present.
     Present,
@@ -16,6 +17,7 @@ pub enum ObservationState {
 /// For instance, a phenotypic feature such as [Polydactyly](https://hpo.jax.org/browse/term/HP:0010442)
 /// can either be present or excluded in the study subject.
 pub trait Observable {
+    /// Get the observation state of the feature
     fn observation_state(&self) -> ObservationState;
 
     /// Test if the feature was observed in one or more items.
@@ -60,31 +62,23 @@ pub trait FrequencyAware {
     }
 }
 
-impl<T> Observable for T
-where
-    T: FrequencyAware,
-{
-    fn observation_state(&self) -> ObservationState {
-        match self.numerator() {
-            0 => ObservationState::Excluded,
-            _ => ObservationState::Present
-        }
-    }
-}
-
-pub trait Feature: Identified + FrequencyAware {}
+pub trait Feature: Identified + Observable + FrequencyAware {}
 
 /// A feature of a subject.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct IndividualFeature {
     identifier: TermId,
-    is_present: bool,
+    observation_state: ObservationState,
 }
 
 impl IndividualFeature {
     pub fn new(identifier: TermId, is_present: bool) -> Self {
         IndividualFeature {
             identifier,
-            is_present,
+            observation_state: match is_present {
+                true => ObservationState::Present,
+                false => ObservationState::Excluded,
+            },
         }
     }
 }
@@ -95,12 +89,15 @@ impl Identified for IndividualFeature {
     }
 }
 
+impl Observable for IndividualFeature {
+    fn observation_state(&self) -> ObservationState {
+        self.observation_state
+    }
+}
+
 impl FrequencyAware for IndividualFeature {
     fn numerator(&self) -> u32 {
-        match self.is_present {
-            true => 1,
-            false => 0,
-        }
+        1
     }
 
     fn denominator(&self) -> u32 {
@@ -111,16 +108,24 @@ impl FrequencyAware for IndividualFeature {
 impl Feature for IndividualFeature {}
 
 /// The aggregated feature represents data for the feature ascertained from a cohort.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AggregatedFeature {
     identifier: TermId,
+    observation_state: ObservationState,
     numerator: u32,
     denominator: u32,
 }
 
 impl AggregatedFeature {
-    pub fn new(identifier: TermId, numerator: u32, denominator: u32) -> Self {
+    pub fn new(
+        identifier: TermId,
+        observation_state: ObservationState,
+        numerator: u32,
+        denominator: u32,
+    ) -> Self {
         AggregatedFeature {
             identifier,
+            observation_state,
             numerator,
             denominator,
         }
@@ -130,6 +135,12 @@ impl AggregatedFeature {
 impl Identified for AggregatedFeature {
     fn identifier(&self) -> &TermId {
         &self.identifier
+    }
+}
+
+impl Observable for AggregatedFeature {
+    fn observation_state(&self) -> ObservationState {
+        self.observation_state
     }
 }
 

@@ -82,7 +82,7 @@ impl<'o, O> CohortIcCalculator<'o, O> {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 struct TermCount {
     present: u32,
-    exluded: u32,
+    excluded: u32,
 }
 
 impl<'o, OI, O> IcCalculator for CohortIcCalculator<'o, O>
@@ -129,7 +129,7 @@ where
                                 }
                             }
                             ObservationState::Excluded => {
-                                idx2count.entry(idx).or_default().exluded += annotation.numerator();
+                                idx2count.entry(idx).or_default().excluded += annotation.numerator();
                                 for desc in self.hpo.hierarchy().descendants_of(idx) {
                                     /*
                                       Unlike in `ObservationState::Present` arm, we do not need
@@ -137,7 +137,7 @@ where
                                       since Ontology DAG guarantees this for any `idx`
                                       contained in `module_term_ids`.
                                     */
-                                    idx2count.entry(*desc).or_default().exluded +=
+                                    idx2count.entry(*desc).or_default().excluded +=
                                         annotation.numerator();
                                 }
                             }
@@ -163,8 +163,8 @@ where
         */
         let pop_excluded_count = idx2count
             .values()
-            .max_by_key(|&count| count.exluded)
-            .map(|count| count.exluded)
+            .max_by_key(|&count| count.excluded)
+            .map(|count| count.excluded)
             // We only get here if `idx2count`` is not empty.
             .expect("Idx2count should not be empty") as f64;
 
@@ -176,7 +176,7 @@ where
                     .idx_to_term_id(*idx)
                     .expect("Index was obtained from ontology so it should be there");
                 let present_ic = f64::log2(pop_present_count / count.present as f64);
-                let excluded_ic = f64::log2(pop_excluded_count / count.exluded as f64);
+                let excluded_ic = f64::log2(pop_excluded_count / count.excluded as f64);
                 (
                     term_id,
                     TermIC {

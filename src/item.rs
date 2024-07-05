@@ -13,3 +13,14 @@ pub trait AnnotatedItem {
         self.annotations().iter().filter(|&a| a.is_excluded())
     }
 }
+
+impl<T> AnnotatedItem for Box<[T]>
+where
+    T: Feature,
+{
+    type Annotation = T;
+
+    fn annotations(&self) -> &[Self::Annotation] {
+        self
+    }
+}

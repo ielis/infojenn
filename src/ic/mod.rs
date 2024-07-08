@@ -1,4 +1,3 @@
-use std::collections::hash_map::Keys;
 use std::collections::{BTreeMap, HashMap};
 
 use ontolius::prelude::*;
@@ -14,11 +13,8 @@ pub struct TermIC {
 }
 
 pub trait IcContainer {
-    type TermIdIter<'i>: Iterator<Item = &'i TermId>
-    where
-        Self: 'i;
 
-    fn iter_term_ids(&self) -> Self::TermIdIter<'_>;
+    fn iter_term_ids(&self) -> impl Iterator<Item = &TermId>;
 
     fn get_term_ic(&self, id: &TermId) -> Option<&TermIC>;
 
@@ -38,9 +34,8 @@ pub trait IcContainer {
 }
 
 impl IcContainer for HashMap<TermId, TermIC> {
-    type TermIdIter<'a> = Keys<'a, TermId, TermIC> where Self: 'a;
 
-    fn iter_term_ids(&self) -> Self::TermIdIter<'_> {
+    fn iter_term_ids(&self) -> impl Iterator<Item = &TermId> {
         self.keys()
     }
 
@@ -54,9 +49,8 @@ impl IcContainer for HashMap<TermId, TermIC> {
 }
 
 impl IcContainer for BTreeMap<TermId, TermIC> {
-    type TermIdIter<'a> = std::collections::btree_map::Keys<'a, TermId, TermIC> where Self: 'a;
 
-    fn iter_term_ids(&self) -> Self::TermIdIter<'_> {
+    fn iter_term_ids(&self) -> impl Iterator<Item = &TermId> {
         self.keys()
     }
 

@@ -90,7 +90,7 @@ where
         T: AnnotatedItem,
     {
         let container = self.ic_calculator.compute_ic(items)?;
-        let relevant: HashSet<OI> = container
+        let relevant: HashSet<&OI> = container
             .iter_term_ids()
             .map(|t| self.hpo.id_to_idx(t).expect("Should be there!"))
             .collect();
@@ -120,7 +120,7 @@ fn find_ic_mica<C, O, OI>(
     left: &TermId,
     right: &TermId,
     ic_container: &C,
-    relevant: &HashSet<OI>,
+    relevant: &HashSet<&OI>,
     hpo: &O,
 ) -> f64
 where
@@ -132,25 +132,21 @@ where
         return ic_container.get_present_term_ic(left).copied().unwrap();
     }
 
-    let left_idx = hpo.id_to_idx(left).expect("Should be there");
-    let mut lanc: HashSet<_> = hpo
+    let l_ancestors: HashSet<_> = hpo
         .hierarchy()
-        .ancestors_of(left_idx)
+        .iter_node_and_ancestors_of(hpo.id_to_idx(left).expect("Should be there"))
         .filter(|&i| relevant.contains(i))
         .collect();
-    lanc.insert(&left_idx);
 
-    let right_idx = hpo.id_to_idx(right).expect("Should be there");
-    let mut ranc: HashSet<_> = hpo
+    let r_ancestors: HashSet<_> = hpo
         .hierarchy()
-        .ancestors_of(right_idx)
+        .iter_node_and_ancestors_of(hpo.id_to_idx(right).expect("Should be there"))
         .filter(|&i| relevant.contains(i))
         .collect();
-    ranc.insert(&right_idx);
 
-    lanc.intersection(&ranc)
+    l_ancestors.intersection(&r_ancestors)
         .map(|&ti| {
-            let t = hpo.idx_to_term_id(*ti).expect("Should be there");
+            let t = hpo.idx_to_term_id(ti).expect("Should be there");
             ic_container.get_present_term_ic(t).unwrap()
         })
         .max_by(|&l, &r| l.partial_cmp(r).expect("We should not be getting NaNs!"))

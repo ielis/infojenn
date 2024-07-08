@@ -1,3 +1,7 @@
+pub mod data;
+
+
+
 #[cfg(test)]
 mod tests {
 
@@ -8,11 +12,12 @@ mod tests {
     use ontolius::prelude::*;
 
     use infojenn::{
-        data::prepare_study_subjects,
         feature::IndividualFeature,
         ic::cohort::CohortIcCalculator,
         semsim::{ic::IcSimilarityMeasureFactory, SimilarityMeasure, SimilarityMeasureFactory},
     };
+
+    use crate::data::fbn1::prepare_fbn1_ectopia_lentis_subjects;
 
     #[test]
     fn test_ic_smc_factory() -> anyhow::Result<()> {
@@ -23,7 +28,7 @@ mod tests {
         let calculator = CohortIcCalculator::new(&hpo, &module_root);
         let factory = IcSimilarityMeasureFactory::new(&hpo, calculator);
 
-        let items = prepare_study_subjects();
+        let items = prepare_fbn1_ectopia_lentis_subjects();
         let measure = factory.create_measure(&items)?;
 
         let left = IndividualFeature::new(TermId::from_str("HP:0001250").unwrap(), true);

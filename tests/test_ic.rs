@@ -1,3 +1,5 @@
+mod data;
+
 #[cfg(test)]
 mod tests {
 
@@ -7,11 +9,8 @@ mod tests {
     use ontolius::ontology::csr::CsrOntology;
     use ontolius::prelude::*;
 
-    use infojenn::{
-        data::prepare_study_subjects,
-        ic::{cohort::CohortIcCalculator, IcCalculator},
-
-    };
+    use crate::data::fbn1::prepare_fbn1_ectopia_lentis_subjects;
+    use infojenn::ic::{cohort::CohortIcCalculator, IcCalculator};
 
     #[test]
     fn test_cohort_ic_calculator() {
@@ -20,7 +19,7 @@ mod tests {
 
         let module_root = TermId::from(("HP", "0000118"));
         let calculator = CohortIcCalculator::new(&hpo, &module_root);
-        let items = prepare_study_subjects();
+        let items = prepare_fbn1_ectopia_lentis_subjects();
 
         let out = calculator.compute_ic(&items);
 

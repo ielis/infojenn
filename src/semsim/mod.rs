@@ -1,28 +1,17 @@
-use ontolius::prelude::*;
-
-use crate::{feature::Observable, item::AnnotatedItem};
+use crate::item::AnnotatedItem;
 use anyhow::Result;
 
 pub mod ic;
 
-pub trait ObservableFeature: Identified + Observable {}
-
-impl<T> ObservableFeature for T where T: Identified + Observable {}
-
-pub trait SimilarityMeasure<F>
-where
-    F: ObservableFeature,
-{
+pub trait SimilarityMeasure<F> {
     fn compute(&self, left: &F, right: &F) -> Result<f64>;
 }
 
-pub trait SimilarityMeasureFactory<F>
+pub trait SimilarityMeasureFactory<T, F>
 where
-    F: ObservableFeature,
+    T: AnnotatedItem<Annotation = F>,
 {
     type Measure: SimilarityMeasure<F>;
 
-    fn create_measure<T>(&self, items: &[T]) -> Result<Self::Measure>
-    where
-        T: AnnotatedItem<Annotation = F>;
+    fn create_measure(&self, items: &[T]) -> Result<Self::Measure>;
 }

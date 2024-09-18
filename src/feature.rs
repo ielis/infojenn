@@ -62,7 +62,17 @@ pub trait FrequencyAware {
     }
 }
 
-pub trait Feature: Identified + Observable + FrequencyAware {}
+impl<T> Observable for T
+where
+    T: FrequencyAware,
+{
+    fn observation_state(&self) -> ObservationState {
+        match self.numerator() {
+            0 => ObservationState::Excluded,
+            _ => ObservationState::Present,
+        }
+    }
+}
 
 /// A feature of a subject.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -89,12 +99,6 @@ impl Identified for IndividualFeature {
     }
 }
 
-impl Observable for IndividualFeature {
-    fn observation_state(&self) -> ObservationState {
-        self.observation_state
-    }
-}
-
 impl FrequencyAware for IndividualFeature {
     fn numerator(&self) -> u32 {
         1
@@ -104,8 +108,6 @@ impl FrequencyAware for IndividualFeature {
         1
     }
 }
-
-impl Feature for IndividualFeature {}
 
 /// The aggregated feature represents data for the feature ascertained from a cohort.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -138,12 +140,6 @@ impl Identified for AggregatedFeature {
     }
 }
 
-impl Observable for AggregatedFeature {
-    fn observation_state(&self) -> ObservationState {
-        self.observation_state
-    }
-}
-
 impl FrequencyAware for AggregatedFeature {
     fn numerator(&self) -> u32 {
         self.numerator
@@ -153,5 +149,3 @@ impl FrequencyAware for AggregatedFeature {
         self.denominator
     }
 }
-
-impl Feature for AggregatedFeature {}

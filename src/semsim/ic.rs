@@ -8,14 +8,14 @@ use itertools::Itertools;
 use ontolius::prelude::*;
 
 use crate::{
-    feature::ObservationState,
+    feature::{Observable, ObservationState},
     ic::{IcCalculator, IcContainer},
     item::AnnotatedItem,
 };
 use anyhow::{bail, Result};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
-use super::{ObservableFeature, SimilarityMeasure, SimilarityMeasureFactory};
+use super::{SimilarityMeasure, SimilarityMeasureFactory};
 
 pub struct IcSimilarityMeasureFactory<'o, O, IC> {
     hpo: &'o O,
@@ -52,7 +52,7 @@ pub struct PrecomputedSimilarityMeasure {
 
 impl<T> SimilarityMeasure<T> for PrecomputedSimilarityMeasure
 where
-    T: ObservableFeature,
+    T: Identified + Observable,
 {
     fn compute(&self, left: &T, right: &T) -> Result<f64> {
         match (left.observation_state(), right.observation_state()) {
@@ -75,9 +75,10 @@ where
     }
 }
 
-impl<'o, OI, O, C, IC, F> SimilarityMeasureFactory<F> for IcSimilarityMeasureFactory<'o, O, IC>
+impl<'o, OI, O, C, IC, T, F> SimilarityMeasureFactory<T, F> for IcSimilarityMeasureFactory<'o, O, IC>
 where
-    F: ObservableFeature,
+    T: AnnotatedItem<Annotation = F>,
+    F: Identified + Observable,
     OI: HierarchyIdx + TermIdx + Hash + Sync,
     O: Ontology<Idx = OI> + Sync,
     C: IcContainer + Sync,
@@ -85,9 +86,7 @@ where
 {
     type Measure = PrecomputedSimilarityMeasure;
 
-    fn create_measure<T>(&self, items: &[T]) -> Result<Self::Measure>
-    where
-        T: AnnotatedItem,
+    fn create_measure(&self, items: &[T]) -> Result<Self::Measure>
     {
         let container = self.ic_calculator.compute_ic(items)?;
         let relevant: HashSet<&OI> = container

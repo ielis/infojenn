@@ -33,7 +33,7 @@ mod tests {
 
         let left = IndividualFeature::new(TermId::from_str("HP:0001250").unwrap(), true);
         let right = IndividualFeature::new(TermId::from_str("HP:0001250").unwrap(), true);
-        let sim = measure.compute(&left, &right);
+        let _ = measure.compute(&left, &right);
 
         // bail!("to see outputs")
         Ok(())

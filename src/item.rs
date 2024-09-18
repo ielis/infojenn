@@ -1,7 +1,9 @@
-use crate::feature::{Feature, Observable};
+use ontolius::base::Identified;
+
+use crate::feature::{FrequencyAware, Observable};
 
 pub trait AnnotatedItem {
-    type Annotation: Feature;
+    type Annotation: Identified + FrequencyAware;
 
     fn annotations(&self) -> &[Self::Annotation];
 
@@ -16,7 +18,7 @@ pub trait AnnotatedItem {
 
 impl<T> AnnotatedItem for Box<[T]>
 where
-    T: Feature,
+    T: Identified + FrequencyAware,
 {
     type Annotation = T;
 

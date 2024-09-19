@@ -115,7 +115,6 @@ impl FrequencyAware for IndividualFeature {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AggregatedFeature {
     identifier: TermId,
-    observation_state: ObservationState,
     numerator: u32,
     denominator: u32,
 }
@@ -123,13 +122,11 @@ pub struct AggregatedFeature {
 impl AggregatedFeature {
     pub fn new(
         identifier: TermId,
-        observation_state: ObservationState,
         numerator: u32,
         denominator: u32,
     ) -> Self {
         AggregatedFeature {
             identifier,
-            observation_state,
             numerator,
             denominator,
         }

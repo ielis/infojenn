@@ -74,45 +74,45 @@ where
     }
 }
 
-impl<'o, OI, O, C, IC, T, F> SimilarityMeasureFactory<T, F>
-    for IcSimilarityMeasureFactory<'o, O, IC>
-where
-    T: AnnotatedItem<Annotation = F>,
-    F: Identified + Observable,
-    OI: HierarchyIdx + TermIdx + Hash + Sync,
-    O: Ontology<Idx = OI> + Sync,
-    C: IcContainer + Sync,
-    IC: IcCalculator<T, Container = C>,
-{
-    type Measure = PrecomputedSimilarityMeasure;
+// impl<'o, OI, O, C, IC, T, F, CO> SimilarityMeasureFactory<T, F>
+//     for IcSimilarityMeasureFactory<'o, O, IC>
+// where
+//     T: AnnotatedItem<Annotation = F>,
+//     F: Identified + Observable,
+//     OI: HierarchyIdx + TermIdx + Hash + Sync,
+//     O: Ontology<Idx = OI> + Sync,
+//     C: IcContainer + Sync,
+//     IC: IcCalculator<T, Container = C>,
+// {
+//     type Measure = PrecomputedSimilarityMeasure;
 
-    fn create_measure(&self, items: &[T]) -> Result<Self::Measure> {
-        let container = self.ic_calculator.compute_ic(items)?;
-        let relevant: HashSet<&OI> = container
-            .iter_term_ids()
-            .map(|t| self.hpo.id_to_idx(t).expect("Should be there!"))
-            .collect();
+//     fn create_measure(&self, items: &[T]) -> Result<Self::Measure> {
+//         let container = self.ic_calculator.compute_ic(items)?;
+//         let relevant: HashSet<&OI> = container
+//             .iter_term_ids()
+//             .map(|t| self.hpo.id_to_idx(t).expect("Should be there!"))
+//             .collect();
 
-        let combinations: Vec<_> = container.iter_term_ids().combinations(2).collect();
+//         let combinations: Vec<_> = container.iter_term_ids().combinations(2).collect();
 
-        let tp2ic_mica: HashMap<TermPair, f64> = combinations
-            .par_iter()
-            .map(|c| {
-                let left = c[0];
-                let right = c[1];
-                let ic_mica = find_ic_mica(left, right, &container, &relevant, self.hpo);
-                if ic_mica < 1e-8 {
-                    None
-                } else {
-                    Some((TermPair::new(left.clone(), right.clone()), ic_mica))
-                }
-            })
-            .flatten()
-            .collect();
+//         let tp2ic_mica: HashMap<TermPair, f64> = combinations
+//             .par_iter()
+//             .map(|c| {
+//                 let left = c[0];
+//                 let right = c[1];
+//                 let ic_mica = find_ic_mica(left, right, &container, &relevant, self.hpo);
+//                 if ic_mica < 1e-8 {
+//                     None
+//                 } else {
+//                     Some((TermPair::new(left.clone(), right.clone()), ic_mica))
+//                 }
+//             })
+//             .flatten()
+//             .collect();
 
-        Ok(PrecomputedSimilarityMeasure { tp2ic_mica })
-    }
-}
+//         Ok(PrecomputedSimilarityMeasure { tp2ic_mica })
+//     }
+// }
 
 fn find_ic_mica<C, O, OI>(
     left: &TermId,

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use ontolius::prelude::*;
 
-use crate::model::{AnnotatedItem, FrequencyAware, Observable, ObservationState};
+use crate::model::{AnnotatedItem, Cohort, FrequencyAware, Observable, ObservationState};
 
 use super::{IcCalculator, TermIC};
 use anyhow::{bail, Result};
@@ -28,11 +28,11 @@ struct TermCount {
 impl<'o, O, I> IcCalculator<I> for CohortIcCalculator<'o, O>
 where
     O: Ontology,
-    I: AnnotatedItem,
+    I: Cohort,
 {
     type Container = HashMap<TermId, TermIC>;
 
-    fn compute_ic(&self, items: &[I]) -> Result<HashMap<TermId, TermIC>> {
+    fn compute_ic(&self, cohort: &I) -> Result<HashMap<TermId, TermIC>> {
         let module_idx = self.hpo.id_to_idx(self.module_root);
         if module_idx.is_none() {
             bail!("Module root {} not in HPO", &self.module_root);
@@ -47,7 +47,7 @@ where
 
         let mut idx2count: HashMap<_, TermCount> = HashMap::with_capacity(module_term_ids.len());
 
-        for item in items {
+        for item in cohort.members() {
             for annotation in item.annotations() {
                 if let Some(idx) = self.hpo.id_to_idx(annotation.identifier()) {
                     if module_term_ids.contains(&idx) {

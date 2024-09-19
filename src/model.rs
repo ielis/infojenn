@@ -120,11 +120,7 @@ pub struct AggregatedFeature {
 }
 
 impl AggregatedFeature {
-    pub fn new(
-        identifier: TermId,
-        numerator: u32,
-        denominator: u32,
-    ) -> Self {
+    pub fn new(identifier: TermId, numerator: u32, denominator: u32) -> Self {
         AggregatedFeature {
             identifier,
             numerator,
@@ -181,6 +177,34 @@ where
     type Annotation = T;
 
     fn annotations(&self) -> &[Self::Annotation] {
+        self
+    }
+}
+
+pub trait Cohort {
+    type Member: AnnotatedItem;
+
+    fn members(&self) -> &[Self::Member];
+}
+
+impl<'a, T> Cohort for &'a [T]
+where
+    T: AnnotatedItem,
+{
+    type Member = T;
+
+    fn members(&self) -> &[Self::Member] {
+        self
+    }
+}
+
+impl<T> Cohort for Vec<T>
+where
+    T: AnnotatedItem,
+{
+    type Member = T;
+
+    fn members(&self) -> &[Self::Member] {
         self
     }
 }

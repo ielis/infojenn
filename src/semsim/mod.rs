@@ -1,4 +1,4 @@
-use crate::item::AnnotatedItem;
+use crate::model::AnnotatedItem;
 use anyhow::Result;
 
 pub mod ic;

@@ -3,7 +3,7 @@ pub mod fbn1 {
 
     use ontolius::prelude::*;
 
-    use infojenn::feature::IndividualFeature;
+    use infojenn::model::IndividualFeature;
 
     pub fn prepare_fbn1_ectopia_lentis_subjects() -> [Vec<IndividualFeature>; 5] {
         [

@@ -1,6 +1,8 @@
+use ontolius::base::Identified;
+
 use std::ops::Div;
 
-use ontolius::base::{Identified, TermId};
+use ontolius::base::TermId;
 
 /// An enum to represent if a feature was present or excluded in the study subject(s).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -17,7 +19,7 @@ pub enum ObservationState {
 /// For instance, a phenotypic feature such as [Polydactyly](https://hpo.jax.org/browse/term/HP:0010442)
 /// can either be present or excluded in the study subject.
 pub trait Observable {
-    /// Get the observation state of the feature
+    /// Get the observation state of a feature
     fn observation_state(&self) -> ObservationState;
 
     /// Test if the feature was observed in one or more items.
@@ -147,5 +149,41 @@ impl FrequencyAware for AggregatedFeature {
 
     fn denominator(&self) -> u32 {
         self.denominator
+    }
+}
+
+pub trait AnnotatedItem {
+    type Annotation: Identified + FrequencyAware;
+
+    fn annotations(&self) -> &[Self::Annotation];
+
+    fn present_annotations(&self) -> impl Iterator<Item = &Self::Annotation> {
+        self.annotations().iter().filter(|&a| a.is_present())
+    }
+
+    fn excluded_annotations(&self) -> impl Iterator<Item = &Self::Annotation> {
+        self.annotations().iter().filter(|&a| a.is_excluded())
+    }
+}
+
+impl<'a, T> AnnotatedItem for &'a [T]
+where
+    T: Identified + FrequencyAware,
+{
+    type Annotation = T;
+
+    fn annotations(&self) -> &[Self::Annotation] {
+        self
+    }
+}
+
+impl<T> AnnotatedItem for Vec<T>
+where
+    T: Identified + FrequencyAware,
+{
+    type Annotation = T;
+
+    fn annotations(&self) -> &[Self::Annotation] {
+        self
     }
 }

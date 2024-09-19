@@ -7,8 +7,8 @@ use ontolius::ontology::csr::CsrOntology;
 use ontolius::prelude::*;
 
 use infojenn::{
-    feature::IndividualFeature,
     ic::cohort::CohortIcCalculator,
+    model::IndividualFeature,
     semsim::{ic::IcSimilarityMeasureFactory, SimilarityMeasure, SimilarityMeasureFactory},
 };
 

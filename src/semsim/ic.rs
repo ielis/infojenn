@@ -8,9 +8,8 @@ use itertools::Itertools;
 use ontolius::prelude::*;
 
 use crate::{
-    feature::{Observable, ObservationState},
     ic::{IcCalculator, IcContainer},
-    item::AnnotatedItem,
+    model::{AnnotatedItem, Observable, ObservationState},
 };
 use anyhow::{bail, Result};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -75,7 +74,8 @@ where
     }
 }
 
-impl<'o, OI, O, C, IC, T, F> SimilarityMeasureFactory<T, F> for IcSimilarityMeasureFactory<'o, O, IC>
+impl<'o, OI, O, C, IC, T, F> SimilarityMeasureFactory<T, F>
+    for IcSimilarityMeasureFactory<'o, O, IC>
 where
     T: AnnotatedItem<Annotation = F>,
     F: Identified + Observable,
@@ -86,8 +86,7 @@ where
 {
     type Measure = PrecomputedSimilarityMeasure;
 
-    fn create_measure(&self, items: &[T]) -> Result<Self::Measure>
-    {
+    fn create_measure(&self, items: &[T]) -> Result<Self::Measure> {
         let container = self.ic_calculator.compute_ic(items)?;
         let relevant: HashSet<&OI> = container
             .iter_term_ids()
@@ -143,7 +142,8 @@ where
         .filter(|&i| relevant.contains(i))
         .collect();
 
-    l_ancestors.intersection(&r_ancestors)
+    l_ancestors
+        .intersection(&r_ancestors)
         .map(|&ti| {
             let t = hpo.idx_to_term_id(ti).expect("Should be there");
             ic_container.get_present_term_ic(t).unwrap()

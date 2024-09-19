@@ -2,10 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use ontolius::prelude::*;
 
-use crate::{
-    feature::{FrequencyAware, Observable, ObservationState},
-    item::AnnotatedItem,
-};
+use crate::model::{AnnotatedItem, FrequencyAware, Observable, ObservationState};
 
 use super::{IcCalculator, TermIC};
 use anyhow::{bail, Result};
@@ -35,8 +32,7 @@ where
 {
     type Container = HashMap<TermId, TermIC>;
 
-    fn compute_ic(&self, items: &[I]) -> Result<HashMap<TermId, TermIC>>
-    {
+    fn compute_ic(&self, items: &[I]) -> Result<HashMap<TermId, TermIC>> {
         let module_idx = self.hpo.id_to_idx(self.module_root);
         if module_idx.is_none() {
             bail!("Module root {} not in HPO", &self.module_root);

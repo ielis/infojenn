@@ -1,51 +1,45 @@
-pub mod data;
+mod data;
 
+use std::{path::Path, str::FromStr};
 
+use ontolius::io::OntologyLoaderBuilder;
+use ontolius::ontology::csr::CsrOntology;
+use ontolius::prelude::*;
 
-#[cfg(test)]
-mod tests {
+use infojenn::{
+    feature::IndividualFeature,
+    ic::cohort::CohortIcCalculator,
+    semsim::{ic::IcSimilarityMeasureFactory, SimilarityMeasure, SimilarityMeasureFactory},
+};
 
-    use std::{path::Path, str::FromStr};
+use crate::data::fbn1::prepare_fbn1_ectopia_lentis_subjects;
 
-    use ontolius::io::OntologyLoaderBuilder;
-    use ontolius::ontology::csr::CsrOntology;
-    use ontolius::prelude::*;
+#[test]
+fn test_ic_smc_factory() -> anyhow::Result<()> {
+    let path = "/home/ielis/.hpo-toolkit/HP/hp.v2024-04-26.json";
+    let hpo = load_hpo(path);
 
-    use infojenn::{
-        feature::IndividualFeature,
-        ic::cohort::CohortIcCalculator,
-        semsim::{ic::IcSimilarityMeasureFactory, SimilarityMeasure, SimilarityMeasureFactory},
-    };
+    let module_root = TermId::from(("HP", "0000118"));
+    let calculator = CohortIcCalculator::new(&hpo, &module_root);
+    let factory = IcSimilarityMeasureFactory::new(&hpo, calculator);
 
-    use crate::data::fbn1::prepare_fbn1_ectopia_lentis_subjects;
+    let items = prepare_fbn1_ectopia_lentis_subjects();
+    let measure = factory.create_measure(&items)?;
 
-    #[test]
-    fn test_ic_smc_factory() -> anyhow::Result<()> {
-        let path = "/home/ielis/.hpo-toolkit/HP/hp.v2024-04-26.json";
-        let hpo = load_hpo(path);
+    let left = IndividualFeature::new(TermId::from_str("HP:0001250").unwrap(), true);
+    let right = IndividualFeature::new(TermId::from_str("HP:0001250").unwrap(), true);
+    let _ = measure.compute(&left, &right);
 
-        let module_root = TermId::from(("HP", "0000118"));
-        let calculator = CohortIcCalculator::new(&hpo, &module_root);
-        let factory = IcSimilarityMeasureFactory::new(&hpo, calculator);
+    // bail!("to see outputs")
+    Ok(())
+}
 
-        let items = prepare_fbn1_ectopia_lentis_subjects();
-        let measure = factory.create_measure(&items)?;
+fn load_hpo(
+    path: impl AsRef<Path>,
+) -> CsrOntology<usize, ontolius::base::term::simple::SimpleMinimalTerm> {
+    let loader = OntologyLoaderBuilder::new().obographs_parser().build();
 
-        let left = IndividualFeature::new(TermId::from_str("HP:0001250").unwrap(), true);
-        let right = IndividualFeature::new(TermId::from_str("HP:0001250").unwrap(), true);
-        let _ = measure.compute(&left, &right);
-
-        // bail!("to see outputs")
-        Ok(())
-    }
-
-    fn load_hpo(
-        path: impl AsRef<Path>,
-    ) -> CsrOntology<usize, ontolius::base::term::simple::SimpleMinimalTerm> {
-        let loader = OntologyLoaderBuilder::new().obographs_parser().build();
-
-        loader
-            .load_from_path(path)
-            .expect("Could not load ontology")
-    }
+    loader
+        .load_from_path(path)
+        .expect("Could not load ontology")
 }

@@ -1,40 +1,27 @@
 mod data;
 
-#[cfg(test)]
-mod tests {
+use ontolius::prelude::*;
+use ontolius::{io::OntologyLoaderBuilder, ontology::csr::MinimalCsrOntology};
 
-    use std::path::Path;
+use crate::data::fbn1::prepare_fbn1_ectopia_lentis_subjects;
+use infojenn::ic::{cohort::CohortIcCalculator, IcCalculator};
 
-    use ontolius::io::OntologyLoaderBuilder;
-    use ontolius::ontology::csr::CsrOntology;
-    use ontolius::prelude::*;
+#[test]
+fn test_cohort_ic_calculator() -> anyhow::Result<()> {
+    let path = "resources/hp.v2024-08-13.json.gz";
+    let loader = OntologyLoaderBuilder::new().obographs_parser().build();
 
-    use crate::data::fbn1::prepare_fbn1_ectopia_lentis_subjects;
-    use infojenn::ic::{cohort::CohortIcCalculator, IcCalculator};
+    let hpo: MinimalCsrOntology = loader.load_from_path(path)?;
 
-    #[test]
-    fn test_cohort_ic_calculator() {
-        let path = "/home/ielis/.hpo-toolkit/HP/hp.v2024-04-26.json";
-        let hpo = load_hpo(path);
+    let module_root = TermId::from(("HP", "0000118"));
+    let calculator = CohortIcCalculator::new(&hpo, &module_root);
+    let items = prepare_fbn1_ectopia_lentis_subjects();
 
-        let module_root = TermId::from(("HP", "0000118"));
-        let calculator = CohortIcCalculator::new(&hpo, &module_root);
-        let items = prepare_fbn1_ectopia_lentis_subjects();
+    let out = calculator.compute_ic(&items);
 
-        let out = calculator.compute_ic(&items);
+    if let Ok(ic_container) = out {
+        println!("{:?}", ic_container);
+    };
 
-        if let Ok(ic_container) = out {
-            println!("{:?}", ic_container);
-        };
-    }
-
-    fn load_hpo(
-        path: impl AsRef<Path>,
-    ) -> CsrOntology<usize, ontolius::base::term::simple::SimpleMinimalTerm> {
-        let loader = OntologyLoaderBuilder::new().obographs_parser().build();
-
-        loader
-            .load_from_path(path)
-            .expect("Could not load ontology")
-    }
+    Ok(())
 }

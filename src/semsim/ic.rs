@@ -82,7 +82,7 @@ where
     OI: HierarchyIdx + TermIdx + Hash + Sync,
     O: Ontology<Idx = OI> + Sync,
     C: IcContainer + Sync,
-    IC: IcCalculator<Container = C>,
+    IC: IcCalculator<T, Container = C>,
 {
     type Measure = PrecomputedSimilarityMeasure;
 

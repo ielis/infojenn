@@ -5,7 +5,7 @@ pub mod fbn1 {
 
     use infojenn::feature::IndividualFeature;
 
-    pub fn prepare_fbn1_ectopia_lentis_subjects() -> [Box<[IndividualFeature]>; 5] {
+    pub fn prepare_fbn1_ectopia_lentis_subjects() -> [Vec<IndividualFeature>; 5] {
         [
             // FBN1 -> BM
             make_study_subject(&[
@@ -100,7 +100,7 @@ pub mod fbn1 {
         ]
     }
 
-    fn make_study_subject(phenotypes: &[(&str, bool)]) -> Box<[IndividualFeature]> {
+    fn make_study_subject(phenotypes: &[(&str, bool)]) -> Vec<IndividualFeature> {
         phenotypes
             .iter()
             .map(|&(curie, is_present)| {

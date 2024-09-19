@@ -13,7 +13,6 @@ pub struct TermIC {
 }
 
 pub trait IcContainer {
-
     fn iter_term_ids(&self) -> impl Iterator<Item = &TermId>;
 
     fn get_term_ic(&self, id: &TermId) -> Option<&TermIC>;
@@ -34,7 +33,6 @@ pub trait IcContainer {
 }
 
 impl IcContainer for HashMap<TermId, TermIC> {
-
     fn iter_term_ids(&self) -> impl Iterator<Item = &TermId> {
         self.keys()
     }
@@ -49,7 +47,6 @@ impl IcContainer for HashMap<TermId, TermIC> {
 }
 
 impl IcContainer for BTreeMap<TermId, TermIC> {
-
     fn iter_term_ids(&self) -> impl Iterator<Item = &TermId> {
         self.keys()
     }
@@ -63,11 +60,11 @@ impl IcContainer for BTreeMap<TermId, TermIC> {
     }
 }
 
-// Not object-safe due to generics in `compute_ic`.
-pub trait IcCalculator {
+pub trait IcCalculator<A>
+where
+    A: AnnotatedItem,
+{
     type Container: IcContainer;
 
-    fn compute_ic<A>(&self, items: &[A]) -> anyhow::Result<Self::Container>
-    where
-        A: AnnotatedItem;
+    fn compute_ic(&self, items: &[A]) -> anyhow::Result<Self::Container>;
 }

@@ -28,15 +28,14 @@ struct TermCount {
     excluded: u32,
 }
 
-impl<'o, O> IcCalculator for CohortIcCalculator<'o, O>
+impl<'o, O, I> IcCalculator<I> for CohortIcCalculator<'o, O>
 where
     O: Ontology,
+    I: AnnotatedItem,
 {
     type Container = HashMap<TermId, TermIC>;
 
-    fn compute_ic<I>(&self, items: &[I]) -> Result<HashMap<TermId, TermIC>>
-    where
-        I: AnnotatedItem,
+    fn compute_ic(&self, items: &[I]) -> Result<HashMap<TermId, TermIC>>
     {
         let module_idx = self.hpo.id_to_idx(self.module_root);
         if module_idx.is_none() {

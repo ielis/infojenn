@@ -16,7 +16,7 @@ pub trait AnnotatedItem {
     }
 }
 
-impl<T> AnnotatedItem for Box<[T]>
+impl<'a, T> AnnotatedItem for &'a [T]
 where
     T: Identified + FrequencyAware,
 {
@@ -24,5 +24,16 @@ where
 
     fn annotations(&self) -> &[Self::Annotation] {
         self
+    }
+}
+
+impl<T> AnnotatedItem for Vec<T>
+where
+    T: Identified + FrequencyAware,
+{
+    type Annotation = T;
+
+    fn annotations(&self) -> &[Self::Annotation] {
+        &self
     }
 }

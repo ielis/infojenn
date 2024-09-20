@@ -2,4 +2,3 @@
 
 pub mod ic;
 pub mod model;
-pub mod semsim;

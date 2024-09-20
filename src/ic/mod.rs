@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use ontolius::prelude::*;
 
-use crate::model::{AnnotatedItem, Cohort};
+use crate::model::Cohort;
 
 pub mod cohort;
 

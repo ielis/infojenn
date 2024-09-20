@@ -1,30 +1,27 @@
-mod data;
+mod conftest;
 
-use std::{path::Path, str::FromStr};
-
-use ontolius::io::OntologyLoaderBuilder;
-use ontolius::ontology::csr::CsrOntology;
+use ontolius::ontology::csr::MinimalCsrOntology;
 use ontolius::prelude::*;
 
+use crate::conftest::fbn1::fbn1_ectopia_lentis_subjects;
+use crate::conftest::hpo;
 use infojenn::{
     ic::cohort::CohortIcCalculator,
     model::IndividualFeature,
     semsim::{ic::IcSimilarityMeasureFactory, SimilarityMeasure, SimilarityMeasureFactory},
 };
+use rstest::rstest;
 
-use crate::data::fbn1::prepare_fbn1_ectopia_lentis_subjects;
-
-#[test]
-fn test_ic_smc_factory() -> anyhow::Result<()> {
-    let path = "/home/ielis/.hpo-toolkit/HP/hp.v2024-04-26.json";
-    let hpo = load_hpo(path);
-
+#[rstest]
+fn test_ic_smc_factory(
+    hpo: MinimalCsrOntology,
+    fbn1_ectopia_lentis_subjects: Vec<Vec<IndividualFeature>>,
+) -> anyhow::Result<()> {
     let module_root = TermId::from(("HP", "0000118"));
     let calculator = CohortIcCalculator::new(&hpo, &module_root);
     let factory = IcSimilarityMeasureFactory::new(&hpo, calculator);
 
-    let items = prepare_fbn1_ectopia_lentis_subjects();
-    // let measure = factory.create_measure(&items)?;
+    // let measure = factory.create_measure(&fbn1_ectopia_lentis_subjects)?;
 
     // let left = IndividualFeature::new(TermId::from_str("HP:0001250").unwrap(), true);
     // let right = IndividualFeature::new(TermId::from_str("HP:0001250").unwrap(), true);
@@ -32,14 +29,4 @@ fn test_ic_smc_factory() -> anyhow::Result<()> {
 
     // bail!("to see outputs")
     Ok(())
-}
-
-fn load_hpo(
-    path: impl AsRef<Path>,
-) -> CsrOntology<usize, ontolius::base::term::simple::SimpleMinimalTerm> {
-    let loader = OntologyLoaderBuilder::new().obographs_parser().build();
-
-    loader
-        .load_from_path(path)
-        .expect("Could not load ontology")
 }

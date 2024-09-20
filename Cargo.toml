@@ -8,3 +8,6 @@ ontolius = { git = 'https://github.com/ielis/ontolius.git', tag = 'v0.3.1' }
 anyhow = "1.0.86"
 rayon = "1.10.0"
 itertools = "0.13.0"
+
+[dev-dependencies]
+rstest = "0.22.0"

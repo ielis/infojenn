@@ -137,8 +137,9 @@ impl FrequencyAware for AggregatedFeature {
     }
 }
 
-pub trait AnnotatedItem {
-    type Annotation: Identified + Observable + FrequencyAware;
+/// An entity annotated with present and excluded ontology terms.
+pub trait Annotated {
+    type Annotation: Identified + Observable;
 
     fn annotations(&self) -> &[Self::Annotation];
 
@@ -151,9 +152,9 @@ pub trait AnnotatedItem {
     }
 }
 
-impl<'a, T> AnnotatedItem for &'a [T]
+impl<'a, T> Annotated for &'a [T]
 where
-    T: Identified + Observable + FrequencyAware,
+    T: Identified + Observable,
 {
     type Annotation = T;
 
@@ -162,9 +163,9 @@ where
     }
 }
 
-impl<T> AnnotatedItem for Vec<T>
+impl<T> Annotated for Vec<T>
 where
-    T: Identified + Observable + FrequencyAware,
+    T: Identified + Observable,
 {
     type Annotation = T;
 
@@ -174,14 +175,14 @@ where
 }
 
 pub trait Cohort {
-    type Member: AnnotatedItem;
+    type Member: Annotated;
 
     fn members(&self) -> &[Self::Member];
 }
 
 impl<'a, T> Cohort for &'a [T]
 where
-    T: AnnotatedItem,
+    T: Annotated,
 {
     type Member = T;
 
@@ -192,7 +193,7 @@ where
 
 impl<T> Cohort for Vec<T>
 where
-    T: AnnotatedItem,
+    T: Annotated,
 {
     type Member = T;
 

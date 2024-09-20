@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use ontolius::prelude::*;
 
-use crate::model::{AnnotatedItem, Cohort, FrequencyAware, Observable, ObservationState};
+use crate::model::{Annotated, Cohort, Observable, ObservationState};
 
 use super::{IcCalculator, TermIC};
 use anyhow::{bail, Result};
@@ -25,14 +25,14 @@ struct TermCount {
     excluded: u32,
 }
 
-impl<'o, O, I> IcCalculator<I> for CohortIcCalculator<'o, O>
+impl<'o, O, C> IcCalculator<C> for CohortIcCalculator<'o, O>
 where
     O: Ontology,
-    I: Cohort,
+    C: Cohort,
 {
     type Container = HashMap<TermId, TermIC>;
 
-    fn compute_ic(&self, cohort: &I) -> Result<HashMap<TermId, TermIC>> {
+    fn compute_ic(&self, cohort: &C) -> Result<HashMap<TermId, TermIC>> {
         let module_idx = self.hpo.id_to_idx(self.module_root);
         if module_idx.is_none() {
             bail!("Module root {} not in HPO", &self.module_root);
@@ -55,8 +55,7 @@ where
                             ObservationState::Present => {
                                 for anc in self.hpo.hierarchy().iter_node_and_ancestors_of(idx) {
                                     if module_term_ids.contains(anc) {
-                                        idx2count.entry(*anc).or_default().present +=
-                                            annotation.numerator();
+                                        idx2count.entry(*anc).or_default().present += 1;
                                     }
                                 }
                             }
@@ -68,8 +67,7 @@ where
                                       since Ontology DAG guarantees this for any `idx`
                                       contained in `module_term_ids`.
                                     */
-                                    idx2count.entry(*desc).or_default().excluded +=
-                                        annotation.numerator();
+                                    idx2count.entry(*desc).or_default().excluded += 1;
                                 }
                             }
                         }

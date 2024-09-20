@@ -20,7 +20,7 @@ pub enum ObservationState {
 /// can either be present or excluded in the study subject.
 pub trait Observable {
     /// Get the observation state of a feature
-    fn observation_state(&self) -> ObservationState;
+    fn observation_state(&self) -> &ObservationState;
 
     /// Test if the feature was observed in one or more items.
     fn is_present(&self) -> bool {
@@ -48,8 +48,6 @@ pub trait Observable {
 /// The absolute counts are accessible via the `numerator` and `denominator` attributes.
 ///
 /// **IMPORTANT**: the implementor must ensure that the `denominator` is a *positive* `u32`.
-///
-/// All `FrequenceyAware` types also implement [`Observable`].
 pub trait FrequencyAware {
     /// Get the numerator, representing the count of annotated items where the feature was present.
     fn numerator(&self) -> u32;
@@ -61,18 +59,6 @@ pub trait FrequencyAware {
     /// Get the fraction of the feature in the annotated item(s) as `f64`.
     fn frequency(&self) -> f64 {
         f64::div(self.numerator() as f64, self.denominator() as f64)
-    }
-}
-
-impl<T> Observable for T
-where
-    T: FrequencyAware,
-{
-    fn observation_state(&self) -> ObservationState {
-        match self.numerator() {
-            0 => ObservationState::Excluded,
-            _ => ObservationState::Present,
-        }
     }
 }
 
@@ -98,6 +84,12 @@ impl IndividualFeature {
 impl Identified for IndividualFeature {
     fn identifier(&self) -> &TermId {
         &self.identifier
+    }
+}
+
+impl Observable for IndividualFeature {
+    fn observation_state(&self) -> &ObservationState {
+        &self.observation_state
     }
 }
 
@@ -146,7 +138,7 @@ impl FrequencyAware for AggregatedFeature {
 }
 
 pub trait AnnotatedItem {
-    type Annotation: Identified + FrequencyAware;
+    type Annotation: Identified + Observable + FrequencyAware;
 
     fn annotations(&self) -> &[Self::Annotation];
 
@@ -161,7 +153,7 @@ pub trait AnnotatedItem {
 
 impl<'a, T> AnnotatedItem for &'a [T]
 where
-    T: Identified + FrequencyAware,
+    T: Identified + Observable + FrequencyAware,
 {
     type Annotation = T;
 
@@ -172,7 +164,7 @@ where
 
 impl<T> AnnotatedItem for Vec<T>
 where
-    T: Identified + FrequencyAware,
+    T: Identified + Observable + FrequencyAware,
 {
     type Annotation = T;
 

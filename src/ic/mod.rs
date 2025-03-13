@@ -1,8 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use ontolius::prelude::*;
-
-use crate::model::Cohort;
+use ontolius::TermId;
 
 pub mod cohort;
 
@@ -60,11 +58,8 @@ impl IcContainer for BTreeMap<TermId, TermIC> {
     }
 }
 
-pub trait IcCalculator<C>
-where
-    C: Cohort,
-{
-    type Container: IcContainer;
+pub trait IcCalculator<C> {
+    type Container;
 
     fn compute_ic(&self, cohort: &C) -> anyhow::Result<Self::Container>;
 }

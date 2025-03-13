@@ -1,8 +1,6 @@
-use ontolius::base::Identified;
-
 use std::ops::Div;
 
-use ontolius::base::TermId;
+use ontolius::{Identified, TermId};
 
 /// An enum to represent if a feature was present or excluded in the study subject(s).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

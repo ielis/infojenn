@@ -1,29 +1,44 @@
-mod conftest;
+mod subjects;
 
-use infojenn::model::IndividualFeature;
-use ontolius::ontology::csr::MinimalCsrOntology;
-use ontolius::prelude::*;
-use rstest::rstest;
+use std::{fs::File, io::BufReader};
 
-use crate::conftest::{fbn1::fbn1_ectopia_lentis_subjects, hpo};
+use flate2::bufread::GzDecoder;
+use ontolius::{
+    common::hpo::PHENOTYPIC_ABNORMALITY, io::OntologyLoaderBuilder,
+    ontology::csr::MinimalCsrOntology, TermId,
+};
+
 use infojenn::ic::{cohort::CohortIcCalculator, IcCalculator};
+use subjects::fbn1_ectopia_lentis_subjects;
 
-#[rstest]
-fn test_cohort_ic_calculator(
-    hpo: MinimalCsrOntology,
-    fbn1_ectopia_lentis_subjects: Vec<Vec<IndividualFeature>>,
-) -> anyhow::Result<()> {
-    let phenotypic_abnormality = TermId::from(("HP", "0000118"));
-    let calculator = CohortIcCalculator::new(&hpo, &phenotypic_abnormality);
+fn load_hpo() -> MinimalCsrOntology {
+    let path = "resources/hp.v2024-08-13.json.gz";
 
-    let ic_container = calculator.compute_ic(&fbn1_ectopia_lentis_subjects)?;
+    OntologyLoaderBuilder::new()
+        .obographs_parser()
+        .build()
+        .load_from_read(GzDecoder::new(BufReader::new(File::open(path).unwrap())))
+        .expect("Should be loadable")
+}
+
+#[test]
+fn test_cohort_ic_calculator() -> anyhow::Result<()> {
+    let hpo = load_hpo();
+    let fbn1 = fbn1_ectopia_lentis_subjects();
+
+    let pa = PHENOTYPIC_ABNORMALITY;
+    let calculator = CohortIcCalculator::new(&hpo, &pa);
+
+    let ic_container = calculator.compute_ic(&fbn1)?;
 
     assert_eq!(ic_container.len(), 178);
 
     // No NaNs allowed!
-    assert!(!ic_container.values().any(|f|f.present.is_nan()||f.excluded.is_nan()));
+    assert!(!ic_container
+        .values()
+        .any(|f| f.present.is_nan() || f.excluded.is_nan()));
 
-    let pa_ic  = ic_container.get(&phenotypic_abnormality);
+    let pa_ic = ic_container.get(&PHENOTYPIC_ABNORMALITY);
     assert!(pa_ic.is_some());
     if let Some(pa_ic) = pa_ic {
         assert_eq!(pa_ic.present, 0.);

@@ -1,12 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-use ontolius::prelude::*;
-
 use crate::model::{Annotated, Cohort, Observable, ObservationState};
 
 use super::{IcCalculator, TermIC};
-use anyhow::{bail, Result};
-use std::hash::Hash;
+use anyhow::Result;
+use ontolius::{ontology::HierarchyWalks, Identified, TermId};
 
 pub struct CohortIcCalculator<'o, O> {
     hpo: &'o O,
@@ -19,7 +17,7 @@ impl<'o, O> CohortIcCalculator<'o, O> {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default)]
 struct TermCount {
     present: u32,
     excluded: u32,
@@ -27,53 +25,41 @@ struct TermCount {
 
 impl<'o, O, C> IcCalculator<C> for CohortIcCalculator<'o, O>
 where
-    O: Ontology,
+    O: HierarchyWalks,
     C: Cohort,
 {
     type Container = HashMap<TermId, TermIC>;
 
     fn compute_ic(&self, cohort: &C) -> Result<HashMap<TermId, TermIC>> {
-        let module_idx = self.hpo.id_to_idx(self.module_root);
-        if module_idx.is_none() {
-            bail!("Module root {} not in HPO", &self.module_root);
-        }
-        let module_idx = module_idx.unwrap();
-
-        let module_term_ids: HashSet<_> = self
-            .hpo
-            .hierarchy()
-            .iter_node_and_descendants_of(module_idx)
-            .collect();
+        let mut module_term_ids = HashSet::new();
+        module_term_ids.extend(self.hpo.iter_term_and_descendant_ids(self.module_root));
 
         let mut idx2count: HashMap<_, TermCount> = HashMap::with_capacity(module_term_ids.len());
 
         for item in cohort.members() {
             for annotation in item.annotations() {
-                if let Some(idx) = self.hpo.id_to_idx(annotation.identifier()) {
-                    if module_term_ids.contains(&idx) {
-                        match annotation.observation_state() {
-                            ObservationState::Present => {
-                                for anc in self.hpo.hierarchy().iter_node_and_ancestors_of(idx) {
-                                    if module_term_ids.contains(anc) {
-                                        idx2count.entry(*anc).or_default().present += 1;
-                                    }
-                                }
-                            }
-                            ObservationState::Excluded => {
-                                for desc in self.hpo.hierarchy().iter_node_and_descendants_of(idx) {
-                                    /*
-                                      Unlike in `ObservationState::Present` arm, we do not need
-                                      to check if `desc` is contained in `module_term_ids`,
-                                      since Ontology DAG guarantees this for any `idx`
-                                      contained in `module_term_ids`.
-                                    */
-                                    idx2count.entry(*desc).or_default().excluded += 1;
+                let term_id = annotation.identifier();
+                if module_term_ids.contains(term_id) {
+                    match annotation.observation_state() {
+                        ObservationState::Present => {
+                            for anc in self.hpo.iter_term_and_ancestor_ids(term_id) {
+                                if module_term_ids.contains(anc) {
+                                    idx2count.entry(anc).or_default().present += 1;
                                 }
                             }
                         }
+                        ObservationState::Excluded => {
+                            for desc in self.hpo.iter_term_and_descendant_ids(term_id) {
+                                /*
+                                    Unlike in `ObservationState::Present` arm, we do not need
+                                    to check if `desc` is contained in `module_term_ids`,
+                                    since Ontology DAG guarantees this for any `idx`
+                                    contained in `module_term_ids`.
+                                */
+                                idx2count.entry(desc).or_default().excluded += 1;
+                            }
+                        }
                     }
-                } else {
-                    bail!("Annotation ID {} not in HPO", annotation.identifier())
                 }
             }
         }
@@ -82,7 +68,7 @@ where
             return Ok(HashMap::new());
         }
 
-        let pop_present_count = idx2count[module_idx].present as f64;
+        let pop_present_count = idx2count[self.module_root].present as f64;
 
         /*
         We use max of the *entire* excluded count set,
@@ -95,13 +81,9 @@ where
             // We only get here if `idx2count`` is not empty.
             .expect("Idx2count should not be empty") as f64;
 
-        let term_id2ic: HashMap<TermId, TermIC> = idx2count
-            .iter()
-            .map(|(idx, count)| {
-                let term_id = self
-                    .hpo
-                    .idx_to_term_id(idx)
-                    .expect("Index was obtained from ontology so it should be there");
+        Ok(idx2count
+            .into_iter()
+            .map(|(term_id, count)| {
                 let present_ic = f64::log2(pop_present_count / count.present as f64);
                 let excluded_ic = f64::log2(pop_excluded_count / count.excluded as f64);
                 (
@@ -112,8 +94,6 @@ where
                     },
                 )
             })
-            .collect();
-
-        Ok(term_id2ic)
+            .collect())
     }
 }

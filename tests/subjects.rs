@@ -1,11 +1,7 @@
-use std::str::FromStr;
-
-use ontolius::prelude::*;
-
+// Few real-life-like individuals for testing.
 use infojenn::model::IndividualFeature;
-use rstest::fixture;
 
-#[fixture]
+#[allow(dead_code)] // Not really a dead code u
 pub fn fbn1_ectopia_lentis_subjects() -> Vec<Vec<IndividualFeature>> {
     [
         // FBN1 -> BM
@@ -106,8 +102,6 @@ pub fn fbn1_ectopia_lentis_subjects() -> Vec<Vec<IndividualFeature>> {
 fn make_study_subject(phenotypes: &[(&str, bool)]) -> Vec<IndividualFeature> {
     phenotypes
         .iter()
-        .map(|&(curie, is_present)| {
-            IndividualFeature::new(TermId::from_str(curie).unwrap(), is_present)
-        })
+        .map(|&(curie, is_present)| IndividualFeature::new(curie.parse().unwrap(), is_present))
         .collect()
 }

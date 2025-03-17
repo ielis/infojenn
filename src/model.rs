@@ -18,7 +18,7 @@ pub enum ObservationState {
 /// can either be present or excluded in the study subject.
 pub trait Observable {
     /// Get the observation state of a feature
-    fn observation_state(&self) -> &ObservationState;
+    fn observation_state(&self) -> ObservationState;
 
     /// Test if the feature was observed in one or more items.
     fn is_present(&self) -> bool {
@@ -86,8 +86,8 @@ impl Identified for IndividualFeature {
 }
 
 impl Observable for IndividualFeature {
-    fn observation_state(&self) -> &ObservationState {
-        &self.observation_state
+    fn observation_state(&self) -> ObservationState {
+        self.observation_state
     }
 }
 
@@ -150,7 +150,7 @@ pub trait Annotated {
     }
 }
 
-impl<'a, T> Annotated for &'a [T]
+impl<T> Annotated for &[T]
 where
     T: Identified + Observable,
 {
@@ -178,7 +178,7 @@ pub trait Cohort {
     fn members(&self) -> &[Self::Member];
 }
 
-impl<'a, T> Cohort for &'a [T]
+impl<T> Cohort for &[T]
 where
     T: Annotated,
 {

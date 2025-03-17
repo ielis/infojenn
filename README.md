@@ -1,3 +1,5 @@
-# infojenn
+# Infojenn
 
-Generate information content for Human Phenotype Ontology terms.
+Use cohorts/corpora of items annotated with Human Phenotype Ontology (HPO) terms
+to compute information content of HPO terms.
+

@@ -36,7 +36,7 @@ fn test_cohort_ic_calculator() -> anyhow::Result<()> {
     // No NaNs allowed!
     assert!(!ic_container
         .values()
-        .any(|f| f.present.is_nan() || f.excluded.is_nan()));
+        .any(|term_ic| term_ic.present.is_nan() || term_ic.excluded.is_nan()));
 
     let pa_ic = ic_container.get(&PHENOTYPIC_ABNORMALITY);
     assert!(pa_ic.is_some());
@@ -45,7 +45,7 @@ fn test_cohort_ic_calculator() -> anyhow::Result<()> {
         assert_eq!(pa_ic.excluded, f64::INFINITY);
     }
 
-    let myopia = TermId::from(("HP", "0000545"));
+    let myopia: TermId = "HP:0000545".parse().unwrap();
     let myopia_ic = ic_container.get(&myopia);
     assert!(myopia_ic.is_some());
     if let Some(myopia_ic) = myopia_ic {
@@ -53,7 +53,7 @@ fn test_cohort_ic_calculator() -> anyhow::Result<()> {
         assert_eq!(myopia_ic.excluded, 1.3219280948873624);
     }
 
-    let ectopia_lentis = TermId::from(("HP", "0001083"));
+    let ectopia_lentis: TermId = "HP:0001083".parse().unwrap();
     let el_ic = ic_container.get(&ectopia_lentis);
     assert!(el_ic.is_some());
     if let Some(el_ic) = el_ic {

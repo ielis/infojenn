@@ -23,7 +23,7 @@ struct TermCount {
     excluded: u32,
 }
 
-impl<'o, O, C> IcCalculator<C> for CohortIcCalculator<'o, O>
+impl<O, C> IcCalculator<C> for CohortIcCalculator<'_, O>
 where
     O: HierarchyWalks,
     C: Cohort,
@@ -53,7 +53,7 @@ where
                                 /*
                                     Unlike in `ObservationState::Present` arm, we do not need
                                     to check if `desc` is contained in `module_term_ids`,
-                                    since Ontology DAG guarantees this for any `idx`
+                                    since Ontology DAG guarantees this for any `term_id`
                                     contained in `module_term_ids`.
                                 */
                                 idx2count.entry(desc).or_default().excluded += 1;
@@ -78,19 +78,17 @@ where
             .values()
             .max_by_key(|&count| count.excluded)
             .map(|count| count.excluded)
-            // We only get here if `idx2count`` is not empty.
+            // We only get here if `idx2count` is not empty.
             .expect("Idx2count should not be empty") as f64;
 
         Ok(idx2count
             .into_iter()
             .map(|(term_id, count)| {
-                let present_ic = f64::log2(pop_present_count / count.present as f64);
-                let excluded_ic = f64::log2(pop_excluded_count / count.excluded as f64);
                 (
                     Clone::clone(term_id),
                     TermIC {
-                        present: present_ic,
-                        excluded: excluded_ic,
+                        present: f64::log2(pop_present_count / count.present as f64),
+                        excluded: f64::log2(pop_excluded_count / count.excluded as f64),
                     },
                 )
             })

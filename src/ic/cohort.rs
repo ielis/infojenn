@@ -1,18 +1,21 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
-use crate::model::{Annotated, Cohort, Observable, ObservationState};
+use crate::model::{Annotated, Observable, ObservationState};
 
 use super::{IcCalculator, TermIC};
 use anyhow::Result;
 use ontolius::{ontology::HierarchyWalks, Identified, TermId};
 
-pub struct CohortIcCalculator<'o, O> {
-    hpo: &'o O,
-    module_root: &'o TermId,
+pub struct CohortIcCalculator<O> {
+    hpo: Arc<O>,
+    module_root: TermId,
 }
 
-impl<'o, O> CohortIcCalculator<'o, O> {
-    pub fn new(hpo: &'o O, module_root: &'o TermId) -> Self {
+impl<O> CohortIcCalculator<O> {
+    pub fn new(hpo: Arc<O>, module_root: TermId) -> Self {
         CohortIcCalculator { hpo, module_root }
     }
 }
@@ -23,20 +26,21 @@ struct TermCount {
     excluded: u32,
 }
 
-impl<O, C> IcCalculator<C> for CohortIcCalculator<'_, O>
+impl<O, A, T> IcCalculator<A> for CohortIcCalculator<O>
 where
     O: HierarchyWalks,
-    C: Cohort,
+    A: Annotated<Annotation = T>,
+    T: Identified + Observable,
 {
     type Container = HashMap<TermId, TermIC>;
 
-    fn compute_ic(&self, cohort: &C) -> Result<HashMap<TermId, TermIC>> {
+    fn compute_ic(&self, cohort: &[A]) -> Result<HashMap<TermId, TermIC>> {
         let mut module_term_ids = HashSet::new();
-        module_term_ids.extend(self.hpo.iter_term_and_descendant_ids(self.module_root));
+        module_term_ids.extend(self.hpo.iter_term_and_descendant_ids(&self.module_root));
 
         let mut idx2count: HashMap<_, TermCount> = HashMap::with_capacity(module_term_ids.len());
 
-        for item in cohort.members() {
+        for item in cohort {
             for annotation in item.annotations() {
                 let term_id = annotation.identifier();
                 if module_term_ids.contains(term_id) {
@@ -68,7 +72,7 @@ where
             return Ok(HashMap::new());
         }
 
-        let pop_present_count = idx2count[self.module_root].present as f64;
+        let pop_present_count = idx2count[&self.module_root].present as f64;
 
         /*
         We use max of the *entire* excluded count set,

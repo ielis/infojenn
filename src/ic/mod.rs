@@ -66,8 +66,9 @@ impl IcContainer for BTreeMap<TermId, TermIC> {
     }
 }
 
-pub trait IcCalculator<C> {
+/// `A` - Annotated items (e.g. phenotyped individuals).
+pub trait IcCalculator<A> {
     type Container: IcContainer;
 
-    fn compute_ic(&self, cohort: &C) -> anyhow::Result<Self::Container>;
+    fn compute_ic(&self, cohort: &[A]) -> anyhow::Result<Self::Container>;
 }

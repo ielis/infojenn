@@ -137,23 +137,25 @@ impl FrequencyAware for AggregatedFeature {
 
 /// An entity annotated with present and excluded ontology terms.
 pub trait Annotated {
-    type Annotation: Identified + Observable;
-
+    type Annotation;
     fn annotations(&self) -> &[Self::Annotation];
 
-    fn present_annotations(&self) -> impl Iterator<Item = &Self::Annotation> {
+    fn present_annotations<'a>(&'a self) -> impl Iterator<Item = &'a Self::Annotation>
+    where
+        Self::Annotation: Observable + 'a,
+    {
         self.annotations().iter().filter(|&a| a.is_present())
     }
 
-    fn excluded_annotations(&self) -> impl Iterator<Item = &Self::Annotation> {
+    fn excluded_annotations<'a>(&'a self) -> impl Iterator<Item = &'a Self::Annotation>
+    where
+        Self::Annotation: Observable + 'a,
+    {
         self.annotations().iter().filter(|&a| a.is_excluded())
     }
 }
 
-impl<T> Annotated for &[T]
-where
-    T: Identified + Observable,
-{
+impl<T> Annotated for &[T] {
     type Annotation = T;
 
     fn annotations(&self) -> &[Self::Annotation] {
@@ -161,41 +163,10 @@ where
     }
 }
 
-impl<T> Annotated for Vec<T>
-where
-    T: Identified + Observable,
-{
+impl<T> Annotated for Vec<T> {
     type Annotation = T;
 
     fn annotations(&self) -> &[Self::Annotation] {
-        self
-    }
-}
-
-pub trait Cohort {
-    type Member: Annotated;
-
-    fn members(&self) -> &[Self::Member];
-}
-
-impl<T> Cohort for &[T]
-where
-    T: Annotated,
-{
-    type Member = T;
-
-    fn members(&self) -> &[Self::Member] {
-        self
-    }
-}
-
-impl<T> Cohort for Vec<T>
-where
-    T: Annotated,
-{
-    type Member = T;
-
-    fn members(&self) -> &[Self::Member] {
         self
     }
 }

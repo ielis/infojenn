@@ -1,6 +1,6 @@
 mod subjects;
 
-use std::{fs::File, io::BufReader};
+use std::{fs::File, io::BufReader, sync::Arc};
 
 use flate2::bufread::GzDecoder;
 use ontolius::{
@@ -23,11 +23,11 @@ fn load_hpo() -> MinimalCsrOntology {
 
 #[test]
 fn test_cohort_ic_calculator() -> anyhow::Result<()> {
-    let hpo = load_hpo();
+    let hpo = Arc::new(load_hpo());
     let fbn1 = fbn1_ectopia_lentis_subjects();
 
     let pa = PHENOTYPIC_ABNORMALITY;
-    let calculator = CohortIcCalculator::new(&hpo, &pa);
+    let calculator = CohortIcCalculator::new(hpo, pa);
 
     let ic_container = calculator.compute_ic(&fbn1)?;
 

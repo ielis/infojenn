@@ -1,11 +1,16 @@
 [package]
 name = "infojenn"
+description = "Compute information content of ontology terms from corpora of annotated items"
 version = "0.1.2-dev0"
 edition = "2021"
 
+[badges]
+maintenance = { status = "experimental" }
+
 [dependencies]
-ontolius = { version = "0.5.2", default-features = false }
 anyhow = "1.0.86"
+ontolius = { version = "0.5.2", default-features = false }
+phenotypes = "0.1.1"
 
 [dev-dependencies]
 ontolius = { version = "0.5.2", features = ["obographs", "csr"] }

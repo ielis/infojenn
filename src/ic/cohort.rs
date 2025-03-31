@@ -3,11 +3,10 @@ use std::{
     sync::Arc,
 };
 
-use crate::model::{Annotated, Observable, ObservationState};
-
 use super::{IcCalculator, TermIC};
 use anyhow::Result;
 use ontolius::{ontology::HierarchyWalks, Identified, TermId};
+use phenotypes::Observable;
 
 pub struct CohortIcCalculator<O> {
     hpo: Arc<O>,
@@ -26,42 +25,43 @@ struct TermCount {
     excluded: u32,
 }
 
-impl<O, A, T> IcCalculator<A> for CohortIcCalculator<O>
+/// `C` - cohort
+/// `M` - member
+/// `A` - annotation
+impl<'a, O, C, M, A> IcCalculator<C> for CohortIcCalculator<O>
 where
     O: HierarchyWalks,
-    A: Annotated<Annotation = T>,
-    T: Identified + Observable,
+    C: IntoIterator<Item = M>,
+    M: IntoIterator<Item = &'a A> + 'a,
+    A: Identified + Observable + 'a,
 {
     type Container = HashMap<TermId, TermIC>;
 
-    fn compute_ic(&self, cohort: &[A]) -> Result<HashMap<TermId, TermIC>> {
+    fn compute_ic(&self, cohort: C) -> Result<HashMap<TermId, TermIC>> {
         let mut module_term_ids = HashSet::new();
         module_term_ids.extend(self.hpo.iter_term_and_descendant_ids(&self.module_root));
 
         let mut idx2count: HashMap<_, TermCount> = HashMap::with_capacity(module_term_ids.len());
 
-        for item in cohort {
-            for annotation in item.annotations() {
+        for member in cohort.into_iter() {
+            for annotation in member.into_iter() {
                 let term_id = annotation.identifier();
                 if module_term_ids.contains(term_id) {
-                    match annotation.observation_state() {
-                        ObservationState::Present => {
-                            for anc in self.hpo.iter_term_and_ancestor_ids(term_id) {
-                                if module_term_ids.contains(anc) {
-                                    idx2count.entry(anc).or_default().present += 1;
-                                }
+                    if annotation.is_present() {
+                        for anc in self.hpo.iter_term_and_ancestor_ids(term_id) {
+                            if module_term_ids.contains(anc) {
+                                idx2count.entry(anc).or_default().present += 1;
                             }
                         }
-                        ObservationState::Excluded => {
-                            for desc in self.hpo.iter_term_and_descendant_ids(term_id) {
-                                /*
-                                    Unlike in `ObservationState::Present` arm, we do not need
-                                    to check if `desc` is contained in `module_term_ids`,
-                                    since Ontology DAG guarantees this for any `term_id`
-                                    contained in `module_term_ids`.
-                                */
-                                idx2count.entry(desc).or_default().excluded += 1;
-                            }
+                    } else {
+                        for desc in self.hpo.iter_term_and_descendant_ids(term_id) {
+                            /*
+                                Unlike in `is_present` arm, we do not need
+                                to check if `desc` is contained in `module_term_ids`,
+                                since Ontology DAG guarantees this for any `term_id`
+                                contained in `module_term_ids`.
+                            */
+                            idx2count.entry(desc).or_default().excluded += 1;
                         }
                     }
                 }
@@ -97,5 +97,74 @@ where
                 )
             })
             .collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{fs::File, io::BufReader, sync::Arc};
+
+    use flate2::bufread::GzDecoder;
+    use ontolius::{
+        common::hpo::PHENOTYPIC_ABNORMALITY, io::OntologyLoaderBuilder,
+        ontology::csr::MinimalCsrOntology, TermId,
+    };
+
+    use crate::{
+        ic::{cohort::CohortIcCalculator, IcCalculator},
+        subjects::fbn1_ectopia_lentis_subjects,
+    };
+
+    fn load_hpo() -> MinimalCsrOntology {
+        let path = "resources/hp.v2024-08-13.json.gz";
+
+        OntologyLoaderBuilder::new()
+            .obographs_parser()
+            .build()
+            .load_from_read(GzDecoder::new(BufReader::new(File::open(path).unwrap())))
+            .expect("Should be loadable")
+    }
+
+    #[test]
+    fn test_cohort_ic_calculator() -> anyhow::Result<()> {
+        let hpo = Arc::new(load_hpo());
+        let fbn1 = fbn1_ectopia_lentis_subjects();
+
+        let pa = PHENOTYPIC_ABNORMALITY;
+        let calculator = CohortIcCalculator::new(hpo, pa);
+
+        let ic_container = calculator.compute_ic(&fbn1)?;
+
+        assert_eq!(ic_container.len(), 178);
+
+        // No NaNs allowed!
+        assert!(!ic_container
+            .values()
+            .any(|term_ic| term_ic.present.is_nan() || term_ic.excluded.is_nan()));
+
+        let pa_ic = ic_container.get(&PHENOTYPIC_ABNORMALITY);
+        assert!(pa_ic.is_some());
+        if let Some(pa_ic) = pa_ic {
+            assert_eq!(pa_ic.present, 0.);
+            assert_eq!(pa_ic.excluded, f64::INFINITY);
+        }
+
+        let myopia: TermId = "HP:0000545".parse().unwrap();
+        let myopia_ic = ic_container.get(&myopia);
+        assert!(myopia_ic.is_some());
+        if let Some(myopia_ic) = myopia_ic {
+            assert_eq!(myopia_ic.present, 3.0588936890535687);
+            assert_eq!(myopia_ic.excluded, 1.3219280948873624);
+        }
+
+        let ectopia_lentis: TermId = "HP:0001083".parse().unwrap();
+        let el_ic = ic_container.get(&ectopia_lentis);
+        assert!(el_ic.is_some());
+        if let Some(el_ic) = el_ic {
+            assert_eq!(el_ic.present, 2.3219280948873622);
+            assert_eq!(el_ic.excluded, f64::INFINITY);
+        }
+
+        Ok(())
     }
 }

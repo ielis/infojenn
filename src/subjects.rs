@@ -1,8 +1,8 @@
-// Few real-life-like individuals for testing.
-use infojenn::model::IndividualFeature;
+//! A module with some test data.
 
-#[allow(dead_code)] // Not really a dead code u
-pub fn fbn1_ectopia_lentis_subjects() -> Vec<Vec<IndividualFeature>> {
+use crate::model::IndividualFeature;
+
+pub(crate) fn fbn1_ectopia_lentis_subjects() -> Vec<Vec<IndividualFeature>> {
     [
         // FBN1 -> BM
         make_study_subject(&[

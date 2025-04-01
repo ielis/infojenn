@@ -8,9 +8,8 @@ edition = "2021"
 maintenance = { status = "experimental" }
 
 [dependencies]
-anyhow = "1.0.86"
 ontolius = { version = "0.5.2", default-features = false }
-phenotypes = "0.1.1"
+phenotypes = "0.1.2"
 
 [dev-dependencies]
 ontolius = { version = "0.5.2", features = ["obographs", "csr"] }

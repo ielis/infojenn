@@ -3,10 +3,14 @@ use std::{
     sync::Arc,
 };
 
-use super::{IcCalculator, TermIC};
-use anyhow::Result;
 use ontolius::{ontology::HierarchyWalks, Identified, TermId};
 use phenotypes::Observable;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TermIC {
+    pub present: f64,
+    pub excluded: f64,
+}
 
 pub struct CohortIcCalculator<O> {
     hpo: Arc<O>,
@@ -25,26 +29,23 @@ struct TermCount {
     excluded: u32,
 }
 
-/// `C` - cohort
-/// `M` - member
-/// `A` - annotation
-impl<'a, O, C, M, A> IcCalculator<C> for CohortIcCalculator<O>
+impl<O> CohortIcCalculator<O>
 where
     O: HierarchyWalks,
-    C: IntoIterator<Item = M>,
-    M: IntoIterator<Item = &'a A> + 'a,
-    A: Identified + Observable + 'a,
 {
-    type Container = HashMap<TermId, TermIC>;
-
-    fn compute_ic(&self, cohort: C) -> Result<HashMap<TermId, TermIC>> {
+    pub fn compute_ic<C, M, A>(&self, cohort: C) -> HashMap<TermId, TermIC>
+    where
+        C: AsRef<[M]>,
+        M: AsRef<[A]>,
+        A: Identified + Observable,
+    {
         let mut module_term_ids = HashSet::new();
         module_term_ids.extend(self.hpo.iter_term_and_descendant_ids(&self.module_root));
 
         let mut idx2count: HashMap<_, TermCount> = HashMap::with_capacity(module_term_ids.len());
 
-        for member in cohort.into_iter() {
-            for annotation in member.into_iter() {
+        for member in cohort.as_ref() {
+            for annotation in member.as_ref() {
                 let term_id = annotation.identifier();
                 if module_term_ids.contains(term_id) {
                     if annotation.is_present() {
@@ -69,7 +70,7 @@ where
         }
 
         if idx2count.is_empty() {
-            return Ok(HashMap::new());
+            return HashMap::new();
         }
 
         let pop_present_count = idx2count[&self.module_root].present as f64;
@@ -85,7 +86,7 @@ where
             // We only get here if `idx2count` is not empty.
             .expect("Idx2count should not be empty") as f64;
 
-        Ok(idx2count
+        idx2count
             .into_iter()
             .map(|(term_id, count)| {
                 (
@@ -96,7 +97,7 @@ where
                     },
                 )
             })
-            .collect())
+            .collect()
     }
 }
 
@@ -110,10 +111,7 @@ mod tests {
         ontology::csr::MinimalCsrOntology, TermId,
     };
 
-    use crate::{
-        ic::{cohort::CohortIcCalculator, IcCalculator},
-        subjects::fbn1_ectopia_lentis_subjects,
-    };
+    use crate::{ic::CohortIcCalculator, subjects::fbn1_ectopia_lentis_subjects};
 
     fn load_hpo() -> MinimalCsrOntology {
         let path = "resources/hp.v2024-08-13.json.gz";
@@ -126,14 +124,14 @@ mod tests {
     }
 
     #[test]
-    fn test_cohort_ic_calculator() -> anyhow::Result<()> {
+    fn test_cohort_ic_calculator() {
         let hpo = Arc::new(load_hpo());
         let fbn1 = fbn1_ectopia_lentis_subjects();
 
         let pa = PHENOTYPIC_ABNORMALITY;
         let calculator = CohortIcCalculator::new(hpo, pa);
 
-        let ic_container = calculator.compute_ic(&fbn1)?;
+        let ic_container = calculator.compute_ic(&fbn1);
 
         assert_eq!(ic_container.len(), 178);
 
@@ -164,7 +162,5 @@ mod tests {
             assert_eq!(el_ic.present, 2.3219280948873622);
             assert_eq!(el_ic.excluded, f64::INFINITY);
         }
-
-        Ok(())
     }
 }

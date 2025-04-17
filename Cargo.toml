@@ -1,7 +1,7 @@
 [package]
 name = "infojenn"
 description = "Compute information content of ontology terms from corpora of annotated items"
-version = "0.1.3"
+version = "0.1.4-dev0"
 edition = "2021"
 
 homepage = "https://github.com/ielis/infojenn"

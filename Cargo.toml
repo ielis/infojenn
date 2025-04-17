@@ -4,6 +4,11 @@ description = "Compute information content of ontology terms from corpora of ann
 version = "0.1.3-dev0"
 edition = "2021"
 
+homepage = "https://github.com/ielis/infojenn"
+repository = "https://github.com/ielis/infojenn"
+readme = "README.md"
+license-file = "LICENSE"
+
 [badges]
 maintenance = { status = "experimental" }
 

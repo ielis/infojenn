@@ -291,7 +291,7 @@ mod tests {
 
         assert_eq!(
             // No zero entries
-            ic_mica.get(&TermPair::from(PHENOTYPIC_ABNORMALITY)),
+            ic_mica.get(&TermPair::from(PHENOTYPIC_ABNORMALITY.clone())),
             None,
         );
 

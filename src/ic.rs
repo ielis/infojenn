@@ -6,6 +6,8 @@ use std::{
 use ontolius::{ontology::HierarchyWalks, Identified, TermId};
 use phenotypes::Observable;
 
+use crate::TermPair;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct TermIC {
     pub present: f64,
@@ -99,11 +101,84 @@ where
             })
             .collect()
     }
+
+    /// Compute information content of the most informative common ancestor (IC<sub>MICA</sub>) for term pairs from the `cohort`.
+    ///
+    /// Returns a map with [`TermPair`]s as keys and IC<sub>MICA</sub> as values.
+    /// The map does *NOT* contain unrelated term entries (i.e. those with IC<sub>MICA</sub> equal to `0`).
+    /// The map contains only the term pairs for the term (plus their ancestors) observed in at least one `cohort` member.
+    pub fn compute_ic_mica<C, M, A>(&self, cohort: C) -> HashMap<TermPair, f64>
+    where
+        C: AsRef<[M]>,
+        M: AsRef<[A]>,
+        A: Identified + Observable,
+    {
+        let mut cohort_ig = HashSet::new();
+        for member in cohort.as_ref() {
+            for pf in member.as_ref() {
+                if pf.is_present() {
+                    cohort_ig.extend(
+                        self.hpo
+                            .iter_term_and_ancestor_ids(pf.identifier())
+                            .cloned(),
+                    );
+                }
+            }
+        }
+
+        let ic = self.compute_ic(cohort);
+        let mut module = Vec::new();
+
+        let mut ic_micas = HashMap::new();
+        for module_root in self.hpo.iter_child_ids(&self.module_root) {
+            module.extend(
+                self.hpo
+                    .iter_term_and_descendant_ids(module_root)
+                    .filter(|ti| cohort_ig.contains(ti)),
+            );
+
+            for (i, &left) in module.iter().enumerate() {
+                for &right in &module[i..] {
+                    if let Some(ic_mica) = common_ancestors(left, right, self.hpo.as_ref())
+                        .into_iter()
+                        .flat_map(|t| ic.get(t).map(|tic| tic.present))
+                        .filter(|&f| f > 0.)
+                        .reduce(f64::max)
+                    {
+                        let key = TermPair::from((left, right));
+                        ic_micas
+                            .entry(key)
+                            .and_modify(|val: &mut f64| *val = val.max(ic_mica))
+                            .or_insert(ic_mica);
+                    }
+                }
+            }
+
+            module.clear();
+        }
+
+        ic_micas
+    }
+}
+
+fn common_ancestors<'a, O>(left: &'a TermId, right: &'a TermId, hpo: &'a O) -> Vec<&'a TermId>
+where
+    O: HierarchyWalks,
+{
+    let work: Vec<_> = hpo.iter_term_and_ancestor_ids(left).collect();
+
+    hpo.iter_term_and_ancestor_ids(right)
+        .filter(|x| work.contains(x))
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, io::BufReader, sync::Arc};
+    use std::{
+        fs::File,
+        io::BufReader,
+        sync::{Arc, OnceLock},
+    };
 
     use flate2::bufread::GzDecoder;
     use ontolius::{
@@ -111,24 +186,30 @@ mod tests {
         ontology::csr::MinimalCsrOntology, TermId,
     };
 
-    use crate::{ic::CohortIcCalculator, subjects::fbn1_ectopia_lentis_subjects};
+    use crate::{
+        ic::{CohortIcCalculator, TermPair},
+        subjects::fbn1_ectopia_lentis_subjects,
+    };
 
-    fn load_hpo() -> MinimalCsrOntology {
+    static HPO: OnceLock<Arc<MinimalCsrOntology>> = OnceLock::new();
+
+    fn load_hpo() -> Arc<MinimalCsrOntology> {
         let path = "resources/hp.v2024-08-13.json.gz";
-
-        OntologyLoaderBuilder::new()
-            .obographs_parser()
-            .build()
-            .load_from_read(GzDecoder::new(BufReader::new(File::open(path).unwrap())))
-            .expect("Should be loadable")
+        Arc::new(
+            OntologyLoaderBuilder::new()
+                .obographs_parser()
+                .build()
+                .load_from_read(GzDecoder::new(BufReader::new(File::open(path).unwrap())))
+                .expect("Should be loadable"),
+        )
     }
 
     #[test]
     fn test_cohort_ic_calculator() {
-        let hpo = Arc::new(load_hpo());
+        let hpo = Arc::clone(HPO.get_or_init(load_hpo));
         let fbn1 = fbn1_ectopia_lentis_subjects();
 
-        let pa = PHENOTYPIC_ABNORMALITY;
+        let pa = PHENOTYPIC_ABNORMALITY.clone();
         let calculator = CohortIcCalculator::new(hpo, pa);
 
         let ic_container = calculator.compute_ic(&fbn1);
@@ -162,5 +243,65 @@ mod tests {
             assert_eq!(el_ic.present, 2.3219280948873622);
             assert_eq!(el_ic.excluded, f64::INFINITY);
         }
+    }
+
+    #[test]
+    fn test_compute_ic_mica() {
+        let hpo = Arc::clone(HPO.get_or_init(load_hpo));
+        let fbn1 = fbn1_ectopia_lentis_subjects();
+        let cic = CohortIcCalculator::new(hpo, PHENOTYPIC_ABNORMALITY.clone());
+
+        let ic_mica = cic.compute_ic_mica(&fbn1);
+
+        // Test some terms
+        let ectopia_lentis: TermId = "HP:0001083".parse().unwrap();
+        assert_eq!(
+            ic_mica.get(&TermPair::from(ectopia_lentis.clone())),
+            Some(&2.3219280948873622),
+        );
+
+        let myopia: TermId = "HP:0000545".parse().unwrap();
+        assert_eq!(
+            ic_mica.get(&TermPair::from(myopia.clone())),
+            Some(&3.0588936890535687),
+        );
+
+        let abn_eye_physiology: TermId = "HP:0012373".parse().unwrap();
+        assert_eq!(
+            ic_mica.get(&TermPair::from(abn_eye_physiology.clone())),
+            Some(&2.321928094887362),
+        );
+
+        let abn_of_the_eye: TermId = "HP:0000478".parse().unwrap();
+        assert_eq!(
+            ic_mica.get(&TermPair::from(abn_of_the_eye.clone())),
+            Some(&1.3219280948873624),
+        );
+
+        assert_eq!(
+            ic_mica.get(&TermPair::from((&myopia, &ectopia_lentis))),
+            Some(&1.3219280948873624),
+        );
+
+        let striae_distensae: TermId = "HP:0001065".parse().unwrap();
+        assert_eq!(
+            ic_mica.get(&TermPair::from(striae_distensae.clone())),
+            Some(&2.643856189774725),
+        );
+
+        assert_eq!(
+            // No zero entries
+            ic_mica.get(&TermPair::from(PHENOTYPIC_ABNORMALITY.clone())),
+            None,
+        );
+
+        assert_eq!(
+            // No common ancestor
+            ic_mica.get(&TermPair::from((
+                striae_distensae.clone(),
+                ectopia_lentis.clone()
+            ))),
+            None,
+        );
     }
 }

@@ -209,7 +209,7 @@ mod tests {
         let hpo = Arc::clone(HPO.get_or_init(load_hpo));
         let fbn1 = fbn1_ectopia_lentis_subjects();
 
-        let pa = PHENOTYPIC_ABNORMALITY;
+        let pa = PHENOTYPIC_ABNORMALITY.clone();
         let calculator = CohortIcCalculator::new(hpo, pa);
 
         let ic_container = calculator.compute_ic(&fbn1);
@@ -249,7 +249,7 @@ mod tests {
     fn test_compute_ic_mica() {
         let hpo = Arc::clone(HPO.get_or_init(load_hpo));
         let fbn1 = fbn1_ectopia_lentis_subjects();
-        let cic = CohortIcCalculator::new(hpo, PHENOTYPIC_ABNORMALITY);
+        let cic = CohortIcCalculator::new(hpo, PHENOTYPIC_ABNORMALITY.clone());
 
         let ic_mica = cic.compute_ic_mica(&fbn1);
 
